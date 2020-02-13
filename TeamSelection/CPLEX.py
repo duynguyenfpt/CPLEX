@@ -2,7 +2,8 @@ import numpy as np
 import cplex
 import random
 import pandas as pd
-import  math
+import math
+import sys
 from sphinx.addnodes import index
 
 filenName = 'southeast-asia.xlsx'
@@ -108,7 +109,7 @@ class MDSB:
             senses.append('G')
         self.model.linear_constraints.add(lin_expr=linear_constraints, rhs=rhs_linear_constraints, senses=senses)
         # constraints #3 x(x-1) = 0
-        for i in range(numberCandidates):
+        for i in range(totalCandidates):
             linear_constraints_of_quadratics = cplex.SparsePair(ind=[variables[i]], val=[1])
             quad_constraints = cplex.SparseTriple(ind1=[variables[i]], ind2=[variables[i]], val=[-1])
             quad_sense = 'E'
@@ -190,7 +191,7 @@ class PMDSB:
             senses.append('G')
         self.model.linear_constraints.add(lin_expr=linear_constraints, rhs=rhs_linear_constraints, senses=senses)
         # constraints #3 x(x-1) = 0
-        for i in range(numberCandidates):
+        for i in range(totalCandidates):
             linear_constraints_of_quadratics = cplex.SparsePair(ind=[variables[i]], val=[1])
             quad_constraints = cplex.SparseTriple(ind1=[variables[i]], ind2=[variables[i]], val=[-1])
             quad_sense = 'E'
@@ -205,7 +206,7 @@ class PMDSB:
             senses=['L'],
             rhs=[C])
 
-def compute_Objective(X):
+def compute_Objective(previousState,X):
     sum = 0
     for j in range(numberSkill):
         tmp = 0
@@ -213,6 +214,8 @@ def compute_Objective(X):
             tmp+=R[i][j] * X[i]
         sum += (E[j] - tmp) * (E[j] - tmp)
     ##
+    for i in range(numberCandidates):
+        sum -= tau * (2*previousState[i]-1) * X[i]
     return sum
 
 def solving(option):
@@ -232,12 +235,16 @@ def solving(option):
         ## random pick
         indices = [i for i in range(totalCandidates)]
         global X_0
-        global isSolved
+        global isSolvedtotalCandidates
+        global previousValue
         '''
         Assign initial variables
         '''
         isSolved = True
         X_0 = np.zeros(totalCandidates)
+        previousValue = sys.float_info.max
+        '''
+        '''
         for i in range(numberCandidates):
             rand_index = random.choice(indices)
             X_0[rand_index] = 1
@@ -253,10 +260,12 @@ def solving(option):
                 isSolved = False
                 break
             X_1 = modelPMDSB.model.solution.get_values()
-            if (math.fabs(compute_Objective(X_0) - compute_Objective(X_1)) < epsilon):
+            currentValue = compute_Objective(X_0,X_1)
+            if (math.fabs(previousValue - currentValue) < epsilon):
                 X_0 = X_1
                 break
             X_0 = X_1
+            previousValue = currentValue
 
         if (isSolved):
             print("Solution for problems using PMDSB is: ")
