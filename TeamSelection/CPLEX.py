@@ -48,7 +48,7 @@ class MDSB:
     def __init__(self):
         self.model = cplex.Cplex()
     def buildModel(self):
-        self.model.set_sense(self.model.objective.sense.minimize)
+        self.model.objective.set_sense(self.model.objective.sense.minimize)
         variables = []
         for i in range(totalCandidates):
             variables.append('x' + str(i))
@@ -57,12 +57,9 @@ class MDSB:
         lower bound of all variables is 0 
         upper bound of all variables is 1
         '''
-        ub = []
-        lb = []
-        for i in range(totalCandidates):
-            ub.append((variables[i], 1))
-            lb.append((variables[i], 0))
-        self.model.variables.add(names=variables, lb=lb, ub=ub)
+        ub = [1 for i in range(totalCandidates)]
+        lb = [0 for i in range(totalCandidates)]
+        self.model.variables.add(names=variables,lb=lb,ub=ub)
         '''
         Set up model function, after decomposition
         Quadratics coefficient for candidate i-th will be: 
@@ -86,7 +83,7 @@ class MDSB:
                                range(len(linear_coefficients))]
         linear_variables = []
         for i in range(totalCandidates):
-            linear_variables.append(i, linear_coefficients[i])
+            linear_variables.append((i, linear_coefficients[i]))
         self.model.objective.set_linear(linear_variables)
         '''
         Setting ups constraints 
@@ -96,8 +93,8 @@ class MDSB:
         4. Constraint sum(c[i]*x[i]) <= C
         '''
         # Constraint #1
-        linear_constraints = [[index for index in range(totalCandidates)]]
-        rhs_linear_constraints = [totalCandidates]
+        linear_constraints = [cplex.SparsePair(ind=[index for index in range(totalCandidates)],val=[1 for i in range(totalCandidates)])]
+        rhs_linear_constraints = [numberCandidates]
         senses = ['E']
         # Constraint #2
         '''
@@ -106,22 +103,23 @@ class MDSB:
         '''
         for i in range(numberSkill):
             row = [R[index, i] for index in range(totalCandidates)]
-            linear_constraints.append(row)
+            linear_constraints.append(cplex.SparsePair(ind=variables.copy(),val=row))
             rhs_linear_constraints.append(z[i])
             senses.append('G')
         self.model.linear_constraints.add(lin_expr=linear_constraints, rhs=rhs_linear_constraints, senses=senses)
         # constraints #3 x(x-1) = 0
-        linear_constraints_of_quadratics = cplex.SparsePair(ind=variables, val=np.ones(totalCandidates))
-        quad_constraints = cplex.SparseTriple(ind1=variables, ind2=variables, val=np.ones(totalCandidates))
-        quad_sense = 'E'
-        quad_contraints_rhs = np.zeros(totalCandidates)
-        self.model.quadratic_constraints.add(lin_expr=linear_constraints_of_quadratics,
-                                             quad_expr=quad_constraints,
-                                             sense=quad_sense,
-                                             rhs=quad_contraints_rhs)
+        for i in range(numberCandidates):
+            linear_constraints_of_quadratics = cplex.SparsePair(ind=[variables[i]], val=[1])
+            quad_constraints = cplex.SparseTriple(ind1=[variables[i]], ind2=[variables[i]], val=[-1])
+            quad_sense = 'E'
+            quad_contraints_rhs = 0
+            self.model.quadratic_constraints.add(lin_expr=linear_constraints_of_quadratics,
+                                                 quad_expr=quad_constraints,
+                                                 sense=quad_sense,
+                                                 rhs=quad_contraints_rhs)
         # Constraint #4
         self.model.linear_constraints.add(
-            lin_expr=cplex.SparsePair(ind=variables.copy(), val=c),
+            lin_expr=[cplex.SparsePair(ind=variables.copy(), val=c)],
             senses=['L'],
             rhs=[C])
 
@@ -130,7 +128,7 @@ class PMDSB:
         self.model = cplex.Cplex()
     ##
     def buildModel(self , previous_step):
-        self.model.set_sense(self.model.objective.sense.minimize)
+        self.model.objective.set_sense(self.model.objective.sense.minimize)
         '''
         Number of variables equals to number of candidates
         '''
@@ -142,11 +140,8 @@ class PMDSB:
         lower bound of all variables is 0 
         upper bound of all variables is 1
         '''
-        ub = []
-        lb = []
-        for i in range(totalCandidates):
-            ub.append((variables[i],1))
-            lb.append((variables[i],0))
+        ub = [1 for i in range(numberCandidates)]
+        lb = [0 for i in range(numberCandidates)]
         self.model.variables.add(names=variables,lb=lb,ub=ub)
         '''
         Set up model function, after decomposition
@@ -179,8 +174,9 @@ class PMDSB:
         4. Constraint sum(c[i]*x[i]) <= C
         '''
         # Constraint #1
-        linear_constraints = [[index for index in range(totalCandidates)]]
-        rhs_linear_constraints = [totalCandidates]
+        linear_constraints = [
+            cplex.SparsePair(ind=[index for index in range(totalCandidates)], val=[1 for i in range(totalCandidates)])]
+        rhs_linear_constraints = [numberCandidates]
         senses = ['E']
         # Constraint #2
         '''
@@ -189,22 +185,23 @@ class PMDSB:
         '''
         for i in range(numberSkill):
             row = [R[index, i] for index in range(totalCandidates)]
-            linear_constraints.append(row)
+            linear_constraints.append(cplex.SparsePair(ind=variables.copy(), val=row))
             rhs_linear_constraints.append(z[i])
             senses.append('G')
-        self.model.linear_constraints.add(lin_expr=linear_constraints,rhs=rhs_linear_constraints,senses=senses)
+        self.model.linear_constraints.add(lin_expr=linear_constraints, rhs=rhs_linear_constraints, senses=senses)
         # constraints #3 x(x-1) = 0
-        linear_constraints_of_quadratics = cplex.SparsePair(ind=variables,val=np.ones(totalCandidates))
-        quad_constraints = cplex.SparseTriple(ind1=variables,ind2=variables,val=np.ones(totalCandidates))
-        quad_sense = 'E'
-        quad_contraints_rhs = np.zeros(totalCandidates)
-        self.model.quadratic_constraints.add(lin_expr=linear_constraints_of_quadratics,
-                                             quad_expr=quad_constraints,
-                                             sense=quad_sense,
-                                             rhs=quad_contraints_rhs)
-        #Constraint #4
+        for i in range(numberCandidates):
+            linear_constraints_of_quadratics = cplex.SparsePair(ind=[variables[i]], val=[1])
+            quad_constraints = cplex.SparseTriple(ind1=[variables[i]], ind2=[variables[i]], val=[-1])
+            quad_sense = 'E'
+            quad_contraints_rhs = 0
+            self.model.quadratic_constraints.add(lin_expr=linear_constraints_of_quadratics,
+                                                 quad_expr=quad_constraints,
+                                                 sense=quad_sense,
+                                                 rhs=quad_contraints_rhs)
+        # Constraint #4
         self.model.linear_constraints.add(
-            lin_expr=cplex.SparsePair(ind=variables.copy(),val=c),
+            lin_expr=[cplex.SparsePair(ind=variables.copy(), val=c)],
             senses=['L'],
             rhs=[C])
 
@@ -265,6 +262,6 @@ def solving(option):
             print("Solution for problems using PMDSB is: ")
             print(X_0)
 
-
+solving(1)
 
 
