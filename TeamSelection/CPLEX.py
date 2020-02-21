@@ -8,14 +8,14 @@ from sphinx.addnodes import index
 
 filenName = 'southeast-asia.xlsx'
 threshHold = 0
-numberCandidates = 20
+numberCandidates = 3
 
 def readData(fileName,threshHold,numberCandidates):
     dataset = pd.read_excel(fileName)
     '''
     R[i][j] is skill-depth of candidates i-th in skill j-th
     '''
-    R = dataset.iloc[:,1:].values
+    R = dataset.iloc[:500,1:].values
     '''
     Sorting based on skill-depth by descending order
     '''
@@ -38,12 +38,14 @@ def readData(fileName,threshHold,numberCandidates):
     return (E,R,skillScore)
 
 E, R, skillScore = readData(fileName= filenName, threshHold= threshHold, numberCandidates= numberCandidates)
-tau = 0.000001
-z = np.zeros(len(R[0]))
+tau = 0.001
 totalCandidates = len(R)
+# z = [elem*0.4 for elem in E]
 numberSkill = len(R[0])
-c = [random.randrange(1, 50, 1) for i in range(totalCandidates)]
-C = 1000
+z = np.zeros(numberSkill)
+# c = [random.randrange(1, 50, 1) for i in range(totalCandidates)]
+c = np.zeros(totalCandidates)
+C = 1000000000
 
 class MDSB:
     def __init__(self):
@@ -62,6 +64,11 @@ class MDSB:
         lb = [0 for i in range(totalCandidates)]
         self.model.variables.add(names=variables,lb=lb,ub=ub)
         '''
+        Set up variables types is binary
+        ['C', 'I', 'B', 'S', 'N'] are integer, binary, semi_continuous, semi_integer
+        '''
+        self.model.variables.set_types([(elem,self.model.variables.type.binary) for elem in variables])
+        '''
         Set up model function, after decomposition
         Quadratics coefficient for candidate i-th will be: 
             R[i,1] ^2  + R[i,2] ^2 + ... + R[i,m] ^ 2 -tau
@@ -69,10 +76,15 @@ class MDSB:
             -(2*(E[1] * R[i,1] + E[2] * R[i,2] + .... + E[m] * R[i,m]) + tau 
         '''
         ## Calculating quadratic coefficients
-        quad_coefficients = np.sum(np.multiply(R, R), axis=1)
+        # quad_coefficients = np.sum(np.multiply(R, R), axis=1)
         quad_variables = []
-        for i in range(totalCandidates):
-            quad_variables.append((i, i, quad_coefficients[i]-tau))
+        # for i in range(totalCandidates):
+        #     quad_variables.append((i, i, quad_coefficients[i]-tau))
+
+        for skill_Index in range(numberSkill):
+            for canIndex1 in range(numberCandidates):
+                for canIndex2 in range(numberCandidates):
+                    quad_variables.append((canIndex1,canIndex2,R[canIndex1][skill_Index] * R[canIndex2][skill_Index]))
         self.model.objective.set_quadratic_coefficients(quad_variables)
         ## Linear Coefficients
         R_copy = np.copy(R)
@@ -80,7 +92,7 @@ class MDSB:
             R_copy[:, i] = [2 * element * E[i] for element in R_copy[:, i]]
         linear_coefficients = np.sum(R_copy, axis=1)
 
-        linear_coefficients = [(linear_coefficients[index] + tau) * -1 for index in
+        linear_coefficients = [(linear_coefficients[index] - tau) * -1 for index in
                                range(len(linear_coefficients))]
         linear_variables = []
         for i in range(totalCandidates):
@@ -108,16 +120,6 @@ class MDSB:
             rhs_linear_constraints.append(z[i])
             senses.append('G')
         self.model.linear_constraints.add(lin_expr=linear_constraints, rhs=rhs_linear_constraints, senses=senses)
-        # constraints #3 x(x-1) = 0
-        for i in range(totalCandidates):
-            linear_constraints_of_quadratics = cplex.SparsePair(ind=[variables[i]], val=[1])
-            quad_constraints = cplex.SparseTriple(ind1=[variables[i]], ind2=[variables[i]], val=[-1])
-            quad_sense = 'E'
-            quad_contraints_rhs = 0
-            self.model.quadratic_constraints.add(lin_expr=linear_constraints_of_quadratics,
-                                                 quad_expr=quad_constraints,
-                                                 sense=quad_sense,
-                                                 rhs=quad_contraints_rhs)
         # Constraint #4
         self.model.linear_constraints.add(
             lin_expr=[cplex.SparsePair(ind=variables.copy(), val=c)],
@@ -272,5 +274,9 @@ def solving(option):
             print(X_0)
 
 solving(1)
+
+# A = [[1,2],[3,4]]
+#
+# print(np.sum(A,axis=0))
 
 
