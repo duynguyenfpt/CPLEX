@@ -32,7 +32,7 @@ def readData(fileName,threshHold,numberCandidates):
     for i in range(len(R2[0])):
         sum_skill_largest = 0
         for j in range(numberCandidates):
-            sum_skill_largest += R2[j,i]
+            sum_skill_largest += R2[j][i]
         E.append(sum_skill_largest)
         ##
     return (E,R,skillScore)
@@ -45,7 +45,7 @@ numberSkill = len(R[0])
 z = np.zeros(numberSkill)
 # c = [random.randrange(1, 50, 1) for i in range(totalCandidates)]
 c = np.zeros(totalCandidates)
-C = 1000000000
+C = cplex.infinity
 
 class MDSB:
     def __init__(self):
@@ -57,12 +57,11 @@ class MDSB:
             variables.append('x' + str(i))
         '''
         Add variables and set upper bounds & lower bounds
-        lower bound of all variables is 0 
-        upper bound of all variables is 1
         '''
-        ub = [1 for i in range(totalCandidates)]
-        lb = [0 for i in range(totalCandidates)]
-        self.model.variables.add(names=variables,lb=lb,ub=ub)
+        # ub = [1 for i in range(totalCandidates)]
+        # lb = [0 for i in range(totalCandidates)]
+        # self.model.variables.add(names=variables,lb=lb,ub=ub)
+        self.model.variables.add(names=variables)
         '''
         Set up variables types is binary
         ['C', 'I', 'B', 'S', 'N'] are integer, binary, semi_continuous, semi_integer
@@ -71,7 +70,7 @@ class MDSB:
         '''
         Set up model function, after decomposition
         Quadratics coefficient for candidate i-th will be: 
-            R[i,1] ^2  + R[i,2] ^2 + ... + R[i,m] ^ 2 -tau
+            
         Linear coefficient for candidate i-th will be:
             -(2*(E[1] * R[i,1] + E[2] * R[i,2] + .... + E[m] * R[i,m]) + tau 
         '''
@@ -83,8 +82,12 @@ class MDSB:
 
         for skill_Index in range(numberSkill):
             for canIndex1 in range(numberCandidates):
-                for canIndex2 in range(numberCandidates):
-                    quad_variables.append((canIndex1,canIndex2,R[canIndex1][skill_Index] * R[canIndex2][skill_Index]))
+                for canIndex2 in range(canIndex1,numberCandidates):
+                    if (canIndex1 != canIndex2):
+                        quad_variables.append((canIndex1,canIndex2,2*R[canIndex1][skill_Index] * R[canIndex2][skill_Index]))
+                    else:
+                        quad_variables.append((canIndex1, canIndex2, R[canIndex1][skill_Index] * R[canIndex2][skill_Index] - tau ))
+
         self.model.objective.set_quadratic_coefficients(quad_variables)
         ## Linear Coefficients
         R_copy = np.copy(R)
@@ -227,11 +230,12 @@ def solving(option):
         modelMDSB = MDSB()
         modelMDSB.buildModel()
         modelMDSB.model.solve()
-        if (modelMDSB.model.solution.status.infeasible):
-            print("Infeasible")
-            return
+        # if (modelMDSB.model.solution.status.infeasible):
+        #     print("Infeasible")
+        #     return
         print("Solution for problems using MDSB model is: ")
-        print(modelMDSB.model.solution.get_values())
+        solution = modelMDSB.model.solution.get_values()
+        print([element for element in solution if (element != 0)])
 
     else:
         ## random pick
