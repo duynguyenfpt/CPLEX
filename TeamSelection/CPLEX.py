@@ -1,3 +1,5 @@
+from builtins import print
+
 import numpy as np
 import cplex
 import random
@@ -10,12 +12,13 @@ filenName = 'southeast-asia.xlsx'
 threshHold = 0
 numberCandidates = 3
 
-def readData(fileName,threshHold,numberCandidates):
+def readData(fileName,threshHold,numberCandidates,numberSkill):
     dataset = pd.read_excel(fileName)
     '''
     R[i][j] is skill-depth of candidates i-th in skill j-th
     '''
-    R = dataset.iloc[:500,1:].values
+    R = dataset.iloc[:500,1:numberSkill].values
+    nickNames = dataset.iloc[:500,0].values
     '''
     Sorting based on skill-depth by descending order
     '''
@@ -35,22 +38,20 @@ def readData(fileName,threshHold,numberCandidates):
             sum_skill_largest += R2[j][i]
         E.append(sum_skill_largest)
         ##
-    return (E,R,skillScore)
-
-E, R, skillScore = readData(fileName= filenName, threshHold= threshHold, numberCandidates= numberCandidates)
-tau = 0.001
-totalCandidates = len(R)
-# z = [elem*0.4 for elem in E]
-numberSkill = len(R[0])
-z = np.zeros(numberSkill)
-# c = [random.randrange(1, 50, 1) for i in range(totalCandidates)]
-c = np.zeros(totalCandidates)
-C = cplex.infinity
+    tau = 0.001
+    totalCandidates = len(R)
+    z = [elem * 0.3 for elem in E]
+    numberSkill = len(R[0])
+    # z = np.zeros(numberSkill)
+    # c = [random.randrange(1, 50, 1) for i in range(totalCandidates)]
+    c = np.zeros(totalCandidates)
+    C = cplex.infinity
+    return (E,R,skillScore,nickNames,tau,z,c,C,numberSkill,totalCandidates)
 
 class MDSB:
     def __init__(self):
         self.model = cplex.Cplex()
-    def buildModel(self):
+    def buildModel(self,E, R,tau,z,c,C,numberSkill,totalCandidates):
         self.model.objective.set_sense(self.model.objective.sense.minimize)
         variables = []
         for i in range(totalCandidates):
@@ -58,9 +59,6 @@ class MDSB:
         '''
         Add variables and set upper bounds & lower bounds
         '''
-        # ub = [1 for i in range(totalCandidates)]
-        # lb = [0 for i in range(totalCandidates)]
-        # self.model.variables.add(names=variables,lb=lb,ub=ub)
         self.model.variables.add(names=variables)
         '''
         Set up variables types is binary
@@ -75,18 +73,16 @@ class MDSB:
             -(2*(E[1] * R[i,1] + E[2] * R[i,2] + .... + E[m] * R[i,m]) + tau 
         '''
         ## Calculating quadratic coefficients
-        # quad_coefficients = np.sum(np.multiply(R, R), axis=1)
         quad_variables = []
-        # for i in range(totalCandidates):
-        #     quad_variables.append((i, i, quad_coefficients[i]-tau))
-
-        for skill_Index in range(numberSkill):
-            for canIndex1 in range(numberCandidates):
-                for canIndex2 in range(canIndex1,numberCandidates):
+        for canIndex1 in range(totalCandidates):
+            for canIndex2 in range(canIndex1,totalCandidates):
+                coefficients = 0
+                for skill_Index in range(numberSkill):
                     if (canIndex1 != canIndex2):
-                        quad_variables.append((canIndex1,canIndex2,2*R[canIndex1][skill_Index] * R[canIndex2][skill_Index]))
+                        coefficients += 2 * R[canIndex1][skill_Index] * R[canIndex2][skill_Index]
                     else:
-                        quad_variables.append((canIndex1, canIndex2, R[canIndex1][skill_Index] * R[canIndex2][skill_Index] - tau ))
+                        coefficients += R[canIndex1][skill_Index] * R[canIndex2][skill_Index] - tau
+                quad_variables.append((canIndex1,canIndex2,coefficients))
 
         self.model.objective.set_quadratic_coefficients(quad_variables)
         ## Linear Coefficients
@@ -133,7 +129,7 @@ class PMDSB:
     def __init__(self):
         self.model = cplex.Cplex()
     ##
-    def buildModel(self , previous_step):
+    def buildModel(self , previous_step,E, R,tau,z,c,C,numberSkill,totalCandidates):
         self.model.objective.set_sense(self.model.objective.sense.minimize)
         '''
         Number of variables equals to number of candidates
@@ -146,9 +142,15 @@ class PMDSB:
         lower bound of all variables is 0 
         upper bound of all variables is 1
         '''
-        ub = [1 for i in range(numberCandidates)]
-        lb = [0 for i in range(numberCandidates)]
-        self.model.variables.add(names=variables,lb=lb,ub=ub)
+        # ub = [1 for i in range(numberCandidates)]
+        # lb = [0 for i in range(numberCandidates)]
+        # self.model.variables.add(names=variables,lb=lb,ub=ub)
+        self.model.variables.add(names=variables)
+        '''
+        Set up variables types is binary
+        ['C', 'I', 'B', 'S', 'N'] are integer, binary, semi_continuous, semi_integer
+        '''
+        self.model.variables.set_types([(elem, self.model.variables.type.binary) for elem in variables])
         '''
         Set up model function, after decomposition
         Quadratics coefficient for candidate i-th will be: 
@@ -157,10 +159,16 @@ class PMDSB:
             -(2*(E[1] * R[i,1] + E[2] * R[i,2] + .... + E[m] * R[i,m]) + tau * ( 2x previous_step[i] - 1 ))
         '''
         ## Calculating quadratic coefficients
-        quad_coefficients = np.sum(np.multiply(R,R),axis=1)
         quad_variables = []
-        for i in range(totalCandidates):
-            quad_variables.append((i,i,quad_coefficients[i]))
+        for canIndex1 in range(totalCandidates):
+            for canIndex2 in range(canIndex1,totalCandidates):
+                coefficients = 0
+                for skill_Index in range(numberSkill):
+                    if (canIndex1 != canIndex2):
+                        coefficients += 2 * R[canIndex1][skill_Index] * R[canIndex2][skill_Index]
+                    else:
+                        coefficients += R[canIndex1][skill_Index] * R[canIndex2][skill_Index] - tau
+                quad_variables.append((canIndex1,canIndex2,coefficients))
         self.model.objective.set_quadratic_coefficients(quad_variables)
         ## Linear Coefficients
         R_copy = np.copy(R)
@@ -170,7 +178,7 @@ class PMDSB:
         linear_coefficients = [(linear_coefficients[index] + tau * (2*previous_step[index] - 1)) * -1 for index in range(len(linear_coefficients))]
         linear_variables = []
         for i in range(totalCandidates):
-            linear_variables.append(i, linear_coefficients[i])
+            linear_variables.append((i, linear_coefficients[i]))
         self.model.objective.set_linear(linear_variables)
         '''
         Setting ups constraints 
@@ -196,53 +204,94 @@ class PMDSB:
             senses.append('G')
         self.model.linear_constraints.add(lin_expr=linear_constraints, rhs=rhs_linear_constraints, senses=senses)
         # constraints #3 x(x-1) = 0
-        for i in range(totalCandidates):
-            linear_constraints_of_quadratics = cplex.SparsePair(ind=[variables[i]], val=[1])
-            quad_constraints = cplex.SparseTriple(ind1=[variables[i]], ind2=[variables[i]], val=[-1])
-            quad_sense = 'E'
-            quad_contraints_rhs = 0
-            self.model.quadratic_constraints.add(lin_expr=linear_constraints_of_quadratics,
-                                                 quad_expr=quad_constraints,
-                                                 sense=quad_sense,
-                                                 rhs=quad_contraints_rhs)
+        # for i in range(totalCandidates):
+        #     linear_constraints_of_quadratics = cplex.SparsePair(ind=[variables[i]], val=[1])
+        #     quad_constraints = cplex.SparseTriple(ind1=[variables[i]], ind2=[variables[i]], val=[-1])
+        #     quad_sense = 'E'
+        #     quad_contraints_rhs = 0
+        #     self.model.quadratic_constraints.add(lin_expr=linear_constraints_of_quadratics,
+        #                                          quad_expr=quad_constraints,
+        #                                          sense=quad_sense,
+        #                                          rhs=quad_contraints_rhs)
         # Constraint #4
         self.model.linear_constraints.add(
             lin_expr=[cplex.SparsePair(ind=variables.copy(), val=c)],
             senses=['L'],
             rhs=[C])
 
-def compute_Objective(previousState,X):
+def compute_ObjectiveMDSB(X,numberSkill,E,R):
     sum = 0
-    for j in range(numberSkill):
+    for index in range(numberSkill):
         tmp = 0
-        for i in range(numberCandidates):
-            tmp+=R[i][j] * X[i]
-        sum += (E[j] - tmp) * (E[j] - tmp)
-    ##
-    for i in range(numberCandidates):
-        sum -= tau * (2*previousState[i]-1) * X[i]
+        for j in X:
+            tmp+= R[j][index]
+        sum += (E[index]-tmp) **2
     return sum
 
-def solving(option):
+def compute_Objective(previousState,X,numberSkill,totalCandidates,tau,E,R):
+    sum = 0
+    indcies = [index for index in range(len(X)) if (X[index] != 0)]
+    for j in range(numberSkill):
+        tmp = 0
+        for i in range(len(indcies)):
+            tmp+=R[indcies[i]][j]
+        sum += (E[j] - tmp) * (E[j] - tmp)
+    ##
+    for index in indcies:
+        sum -= tau * (2*previousState[index]-1)
+    # print(sum)
+    return sum
+
+def solving(option,number_Skill):
     # option 1 is MDSB
     # option 2 is PMDSB
     if option == 1:
+        E, R, skillScore, nickNames, tau, z, c, C, numberSkill, totalCandidates = readData(fileName=filenName,
+                                                                                           threshHold=threshHold,
+                                                                                           numberCandidates=numberCandidates,
+                                                                                           numberSkill=number_Skill)
         modelMDSB = MDSB()
-        modelMDSB.buildModel()
+        modelMDSB.buildModel( E=E, R=R,tau=tau,z= z,c= c,C= C,numberSkill= numberSkill,totalCandidates= totalCandidates)
+        modelMDSB.model.set_log_stream(None)
+        modelMDSB.model.set_error_stream(None)
+        modelMDSB.model.set_warning_stream(None)
+        modelMDSB.model.set_results_stream(None)
+        startTime = modelMDSB.model.get_time()
         modelMDSB.model.solve()
+        endTime = modelMDSB.model.get_time()
         # if (modelMDSB.model.solution.status.infeasible):
         #     print("Infeasible")
         #     return
         print("Solution for problems using MDSB model is: ")
         solution = modelMDSB.model.solution.get_values()
-        print([element for element in solution if (element != 0)])
+        print([nickNames[element] for element in range(len(solution)) if (solution[element] != 0)])
+        print("Objective Function Values is: ")
+        result = modelMDSB.model.solution.get_objective_value()
+        for index in range(numberSkill):
+            result += E[index]**2
+        # print(math.sqrt(result))
+        # result = math.sqrt(result)
+        # print(result)
+        indecies = [element for element in range(len(solution)) if (solution[element] != 0)]
+        print(indecies)
+        print(math.sqrt(compute_ObjectiveMDSB(indecies,numberSkill,E,R)))
+        # DuongsValue = [6,330,456]
+        # print(math.sqrt(compute_ObjectiveMDSB(DuongsValue)))
+        print("Time Execution")
+        print(endTime-startTime)
+        print("Number skill: ",numberSkill)
 
     else:
+        E, R, skillScore, nickNames, tau, z, c, C, numberSkill, totalCandidates = readData(fileName=filenName,
+                                                                                           threshHold=threshHold,
+                                                                                           numberCandidates=numberCandidates,
+                                                                                           numberSkill=number_Skill)
         ## random pick
         indices = [i for i in range(totalCandidates)]
         global X_0
         global isSolvedtotalCandidates
         global previousValue
+        global objectValue
         '''
         Assign initial variables
         '''
@@ -259,14 +308,19 @@ def solving(option):
         epsilon = 0.00001
         while True:
             modelPMDSB = PMDSB()
-            modelPMDSB.buildModel(X_0)
+            modelPMDSB.buildModel(X_0,E=E, R=R,tau=tau,z= z,c= c,C= C,numberSkill= numberSkill,totalCandidates= totalCandidates)
+            modelPMDSB.model.set_log_stream(None)
+            modelPMDSB.model.set_error_stream(None)
+            modelPMDSB.model.set_warning_stream(None)
+            modelPMDSB.model.set_results_stream(None)
             modelPMDSB.model.solve()
-            if (modelPMDSB.model.solution.status.infeasible):
-                print("Infeasible")
-                isSolved = False
-                break
+            # if (modelPMDSB.model.solution.status.infeasible):
+            #     print("Infeasible")
+            #     isSolved = False
+            #     break
             X_1 = modelPMDSB.model.solution.get_values()
-            currentValue = compute_Objective(X_0,X_1)
+            currentValue = compute_Objective(X_0,X_1,numberSkill,totalCandidates,tau,E,R)
+            objectValue = currentValue
             if (math.fabs(previousValue - currentValue) < epsilon):
                 X_0 = X_1
                 break
@@ -275,12 +329,14 @@ def solving(option):
 
         if (isSolved):
             print("Solution for problems using PMDSB is: ")
-            print(X_0)
+            print([index for index in range(len(X_0)) if X_0[index] != 0])
+            print("Objective Value is: ")
+            print(math.sqrt(objectValue))
+            print("Number Skill: ")
+            print(numberSkill)
 
-solving(1)
+for skillNumber in range(3,39):
+    solving(2,skillNumber)
 
-# A = [[1,2],[3,4]]
-#
-# print(np.sum(A,axis=0))
-
+# solving(2,37)
 
