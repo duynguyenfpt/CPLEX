@@ -81,18 +81,15 @@ class MDSB:
                     if (canIndex1 != canIndex2):
                         coefficients += 2 * R[canIndex1][skill_Index] * R[canIndex2][skill_Index]
                     else:
-                        coefficients += R[canIndex1][skill_Index] * R[canIndex2][skill_Index] - tau
+                        coefficients += R[canIndex1][skill_Index] ** 2
                 quad_variables.append((canIndex1,canIndex2,coefficients))
 
         self.model.objective.set_quadratic_coefficients(quad_variables)
         ## Linear Coefficients
         R_copy = np.copy(R)
         for i in range(len(R_copy[0])):
-            R_copy[:, i] = [2 * element * E[i] for element in R_copy[:, i]]
+            R_copy[:, i] = [-2 * element * E[i] for element in R_copy[:, i]]
         linear_coefficients = np.sum(R_copy, axis=1)
-
-        linear_coefficients = [(linear_coefficients[index] - tau) * -1 for index in
-                               range(len(linear_coefficients))]
         linear_variables = []
         for i in range(totalCandidates):
             linear_variables.append((i, linear_coefficients[i]))
@@ -118,6 +115,7 @@ class MDSB:
             linear_constraints.append(cplex.SparsePair(ind=variables.copy(),val=row))
             rhs_linear_constraints.append(z[i])
             senses.append('G')
+
         self.model.linear_constraints.add(lin_expr=linear_constraints, rhs=rhs_linear_constraints, senses=senses)
         # Constraint #4
         self.model.linear_constraints.add(
@@ -142,21 +140,14 @@ class PMDSB:
         lower bound of all variables is 0 
         upper bound of all variables is 1
         '''
-        # ub = [1 for i in range(numberCandidates)]
-        # lb = [0 for i in range(numberCandidates)]
-        # self.model.variables.add(names=variables,lb=lb,ub=ub)
-        self.model.variables.add(names=variables)
-        '''
-        Set up variables types is binary
-        ['C', 'I', 'B', 'S', 'N'] are integer, binary, semi_continuous, semi_integer
-        '''
-        self.model.variables.set_types([(elem, self.model.variables.type.binary) for elem in variables])
+        ub = np.ones(totalCandidates)
+        lb = np.zeros(totalCandidates)
+        self.model.variables.add(names=variables,lb=lb,ub=ub)
+        self.model.variables.set_types([(elem, self.model.variables.type.continuous) for elem in variables])
         '''
         Set up model function, after decomposition
         Quadratics coefficient for candidate i-th will be: 
             R[i,1] ^2 + R[i,2] ^2 + ... + R[i,m] ^ 2
-        Linear coefficient for candidate i-th will be:
-            -(2*(E[1] * R[i,1] + E[2] * R[i,2] + .... + E[m] * R[i,m]) + tau * ( 2x previous_step[i] - 1 ))
         '''
         ## Calculating quadratic coefficients
         quad_variables = []
@@ -167,7 +158,7 @@ class PMDSB:
                     if (canIndex1 != canIndex2):
                         coefficients += 2 * R[canIndex1][skill_Index] * R[canIndex2][skill_Index]
                     else:
-                        coefficients += R[canIndex1][skill_Index] * R[canIndex2][skill_Index] - tau
+                        coefficients += R[canIndex1][skill_Index] * R[canIndex2][skill_Index]
                 quad_variables.append((canIndex1,canIndex2,coefficients))
         self.model.objective.set_quadratic_coefficients(quad_variables)
         ## Linear Coefficients
@@ -218,6 +209,7 @@ class PMDSB:
             lin_expr=[cplex.SparsePair(ind=variables.copy(), val=c)],
             senses=['L'],
             rhs=[C])
+
 
 def compute_ObjectiveMDSB(X,numberSkill,E,R):
     sum = 0
@@ -306,6 +298,7 @@ def solving(option,number_Skill):
             indices.remove(rand_index)
         ##
         epsilon = 0.00001
+        executionTime = 0
         while True:
             modelPMDSB = PMDSB()
             modelPMDSB.buildModel(X_0,E=E, R=R,tau=tau,z= z,c= c,C= C,numberSkill= numberSkill,totalCandidates= totalCandidates)
@@ -313,7 +306,11 @@ def solving(option,number_Skill):
             modelPMDSB.model.set_error_stream(None)
             modelPMDSB.model.set_warning_stream(None)
             modelPMDSB.model.set_results_stream(None)
+            startTime = modelPMDSB.model.get_time()
             modelPMDSB.model.solve()
+            endTime = modelPMDSB.model.get_time()
+            executionTime += (endTime-startTime)
+            executionTime += (endTime-startTime)
             # if (modelPMDSB.model.solution.status.infeasible):
             #     print("Infeasible")
             #     isSolved = False
@@ -334,9 +331,10 @@ def solving(option,number_Skill):
             print(math.sqrt(objectValue))
             print("Number Skill: ")
             print(numberSkill)
+            print("Execution Time: " , executionTime)
 
 for skillNumber in range(3,39):
-    solving(2,skillNumber)
+    solving(1,skillNumber)
 
-# solving(2,37)
+# solving(2,38)
 
