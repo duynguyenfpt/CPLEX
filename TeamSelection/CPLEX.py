@@ -6,6 +6,8 @@ import random
 import pandas as pd
 import math
 import sys
+
+from sklearn.preprocessing.tests.test_base import toarray
 from sphinx.addnodes import index
 
 filenName = 'southeast-asia.xlsx'
@@ -17,8 +19,8 @@ def readData(fileName,threshHold,numberCandidates,numberSkill):
     '''
     R[i][j] is skill-depth of candidates i-th in skill j-th
     '''
-    R = dataset.iloc[:500,1:numberSkill].values
-    nickNames = dataset.iloc[:500,0].values
+    R = dataset.iloc[:50,1:numberSkill].values
+    nickNames = dataset.iloc[:50,0].values
     '''
     Sorting based on skill-depth by descending order
     '''
@@ -143,25 +145,32 @@ class PMDSB:
         '''
         ub = np.ones(totalCandidates)
         lb = np.zeros(totalCandidates)
-        self.model.variables.add(names=variables,lb=lb,ub=ub)
-        self.model.variables.set_types([(elem, self.model.variables.type.continuous) for elem in variables])
+        self.model.variables.add(names=variables,lb=lb,ub=ub,types=['I']*totalCandidates)
+        # self.model.variables.add(names=variables,lb=lb,ub=ub)
+        # self.model.variables.set_types([(elem, self.model.variables.type.continuous) for elem in variables])
+        # self.model.variables.add(names=variables,types=['I']*totalCandidates)
         '''
         Set up model function, after decomposition
         Quadratics coefficient for candidate i-th will be: 
             R[i,1] ^2 + R[i,2] ^2 + ... + R[i,m] ^ 2
         '''
         ## Calculating quadratic coefficients
-        quad_variables = []
-        for canIndex1 in range(totalCandidates):
-            for canIndex2 in range(canIndex1,totalCandidates):
-                coefficients = 0
-                for skill_Index in range(numberSkill):
-                    if (canIndex1 != canIndex2):
-                        coefficients += 2 * R[canIndex1][skill_Index] * R[canIndex2][skill_Index]
-                    else:
-                        coefficients += R[canIndex1][skill_Index] * R[canIndex2][skill_Index]
-                quad_variables.append((canIndex1,canIndex2,coefficients))
-        self.model.objective.set_quadratic_coefficients(quad_variables)
+        # quad_variables = []
+        # for canIndex1 in range(totalCandidates):
+        #     for canIndex2 in range(canIndex1,totalCandidates):
+        #         coefficients = 0
+        #         for skill_Index in range(numberSkill):
+        #             if (canIndex1 != canIndex2):
+        #                 coefficients += 2 * R[canIndex1][skill_Index] * R[canIndex2][skill_Index]
+        #             else:
+        #                 coefficients += 1 * R[canIndex1][skill_Index] * R[canIndex2][skill_Index]
+        #         quad_variables.append((canIndex1,canIndex2,coefficients))
+        #
+        # self.model.objective.set_quadratic_coefficients(quad_variables)
+        A = 2* R.dot(R.T)
+        row = [i for i in range(totalCandidates)]
+        qmat = [[row, A[i]] for i in range(totalCandidates)]
+        self.model.objective.set_quadratic(qmat)
         ## Linear Coefficients
         R_copy = np.copy(R)
         for i in range(len(R_copy[0])):
@@ -171,7 +180,7 @@ class PMDSB:
         linear_variables = []
         for i in range(totalCandidates):
             linear_variables.append((i, linear_coefficients[i]))
-        self.model.objective.set_linear(linear_variables)
+        #self.model.objective.set_linear(linear_variables)
         '''
         Setting ups constraints 
         1. SUM of all variables is number of candidates
@@ -194,6 +203,19 @@ class PMDSB:
             linear_constraints.append(cplex.SparsePair(ind=variables.copy(), val=row))
             rhs_linear_constraints.append(z[i])
             senses.append('G')
+        # for i in range(totalCandidates):
+        #     # val.append(1)
+        #     # val.append(1)
+        #     # row.append(i)
+        #     # row.append(i)
+        #     linear_constraints.append(cplex.SparsePair(ind=[i], val=[1]))
+        #     linear_constraints.append(cplex.SparsePair(ind=[i], val=[1]))
+        #     rhs_linear_constraints.append(0)
+        #     rhs_linear_constraints.append(1)
+        #     senses.append('G')
+        #     senses.append('L')
+
+
         self.model.linear_constraints.add(lin_expr=linear_constraints, rhs=rhs_linear_constraints, senses=senses)
         # constraints #3 x(x-1) = 0
         # for i in range(totalCandidates):
