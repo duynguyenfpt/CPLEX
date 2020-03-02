@@ -26,7 +26,7 @@ print(model.objective.get_quadratic())
 #                                 rhs=18,
 #                                 sense='L')
 
-model.linear_constraints.add(lin_expr=[[["x1","x2"],[1,1]]],senses=["E"],rhs=[10])
+model.linear_constraints.add(lin_expr=[[["x1","x2"],[1,1]]],senses=["E"],rhs=[11])
 model.solve()
 print(model.solution.get_status())
 print(model.solution.get_objective_value())

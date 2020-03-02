@@ -6,8 +6,9 @@ import random
 import pandas as pd
 import math
 import sys
+from numpy import linalg as LA
 
-from sklearn.preprocessing.tests.test_base import toarray
+# from sklearn.preprocessing.tests.test_base import toarray
 from sphinx.addnodes import index
 
 filenName = 'southeast-asia.xlsx'
@@ -19,8 +20,10 @@ def readData(fileName,threshHold,numberCandidates,numberSkill):
     '''
     R[i][j] is skill-depth of candidates i-th in skill j-th
     '''
-    R = dataset.iloc[:50,1:numberSkill].values
-    nickNames = dataset.iloc[:50,0].values
+    R = dataset.iloc[:500,1:numberSkill].values
+    R_before_normalize = R
+    R = normalizingData(R)
+    nickNames = dataset.iloc[:500,0].values
     '''
     Sorting based on skill-depth by descending order
     '''
@@ -29,6 +32,7 @@ def readData(fileName,threshHold,numberCandidates,numberSkill):
     E is sum of h(number of selected candidates) largest skill-depth
     '''
     E = []
+    E_before_normalize = []
     '''
     skillScore is sum of all skill-depth of a candidates
     '''
@@ -40,6 +44,12 @@ def readData(fileName,threshHold,numberCandidates,numberSkill):
             sum_skill_largest += R2[j][i]
         E.append(sum_skill_largest)
         ##
+    R2 = -np.sort(-np.array(R_before_normalize), axis=0)
+    for i in range(len(R2[0])):
+        sum_skill_largest = 0
+        for j in range(numberCandidates):
+            sum_skill_largest += R2[j][i]
+        E_before_normalize.append(sum_skill_largest)
     tau = 0.001
     totalCandidates = len(R)
     z = [elem * 0.3 for elem in E]
@@ -48,7 +58,28 @@ def readData(fileName,threshHold,numberCandidates,numberSkill):
     # c = [random.randrange(1, 50, 1) for i in range(totalCandidates)]
     c = np.zeros(totalCandidates)
     C = cplex.infinity
-    return (E,R,skillScore,nickNames,tau,z,c,C,numberSkill,totalCandidates)
+    return (E,E_before_normalize,R,R_before_normalize,skillScore,nickNames,tau,z,c,C,numberSkill,totalCandidates)
+
+def normalizingData(R):
+    print("##########")
+    print(R)
+    R_copy = np.copy(R)
+    R_copy = np.sort(R_copy,axis=0)
+    print(R_copy)
+    dictList = []
+    for index in range(len(R_copy[0])):
+        dict = {R_copy[0][index] : 1}
+        lastValue = 1
+        for index2 in range(1,len(R_copy)):
+            if (R_copy[index2][index] not in dict):
+                lastValue += 1
+                dict[R_copy[index2][index]] = lastValue
+        dictList.append(dict)
+    for index in range(len(R[0])):
+        for index2 in range(len(R)):
+            R[index2][index] = dictList[index][R[index2][index]]
+    return R
+
 
 class MDSB:
     def __init__(self):
@@ -131,7 +162,7 @@ class PMDSB:
     ##
     def buildModel(self , previous_step,E, R,tau,z,c,C,numberSkill,totalCandidates):
         self.model.objective.set_sense(self.model.objective.sense.minimize)
-        self.model.parameters.optimalitytarget.set(1)
+        self.model.parameters.optimalitytarget.set(3)
         '''
         Number of variables equals to number of candidates
         '''
@@ -145,7 +176,7 @@ class PMDSB:
         '''
         ub = np.ones(totalCandidates)
         lb = np.zeros(totalCandidates)
-        self.model.variables.add(names=variables,lb=lb,ub=ub,types=['I']*totalCandidates)
+        self.model.variables.add(names=variables,lb=lb,ub=ub)
         # self.model.variables.add(names=variables,lb=lb,ub=ub)
         # self.model.variables.set_types([(elem, self.model.variables.type.continuous) for elem in variables])
         # self.model.variables.add(names=variables,types=['I']*totalCandidates)
@@ -234,13 +265,13 @@ class PMDSB:
             rhs=[C])
 
 
-def compute_ObjectiveMDSB(X,numberSkill,E,R):
+def compute_ObjectiveMDSB(X,numberSkill,E_before_normalize,R_before_normalize):
     sum = 0
     for index in range(numberSkill):
         tmp = 0
         for j in X:
-            tmp+= R[j][index]
-        sum += (E[index]-tmp) **2
+            tmp+= R_before_normalize[j][index]
+        sum += (E_before_normalize[index]-tmp) **2
     return sum
 
 def compute_Objective(previousState,X,numberSkill,totalCandidates,tau,E,R):
@@ -249,7 +280,7 @@ def compute_Objective(previousState,X,numberSkill,totalCandidates,tau,E,R):
     for j in range(numberSkill):
         tmp = 0
         for i in range(len(indcies)):
-            tmp+=R[indcies[i]][j]
+            tmp+=R[indcies[i]][j] * previousState[j]
         sum += (E[j] - tmp) * (E[j] - tmp)
     ##
     for index in indcies:
@@ -261,7 +292,7 @@ def solving(option,number_Skill):
     # option 1 is MDSB
     # option 2 is PMDSB
     if option == 1:
-        E, R, skillScore, nickNames, tau, z, c, C, numberSkill, totalCandidates = readData(fileName=filenName,
+        E,E_before_normalize,R,R_before_normalize, skillScore, nickNames, tau, z, c, C, numberSkill, totalCandidates = readData(fileName=filenName,
                                                                                            threshHold=threshHold,
                                                                                            numberCandidates=numberCandidates,
                                                                                            numberSkill=number_Skill)
@@ -297,7 +328,7 @@ def solving(option,number_Skill):
         print("Number skill: ",numberSkill)
 
     else:
-        E, R, skillScore, nickNames, tau, z, c, C, numberSkill, totalCandidates = readData(fileName=filenName,
+        E,E_before_normalize,R,R_before_normalize, skillScore, nickNames, tau, z, c, C, numberSkill, totalCandidates = readData(fileName=filenName,
                                                                                            threshHold=threshHold,
                                                                                            numberCandidates=numberCandidates,
                                                                                            numberSkill=number_Skill)
@@ -353,9 +384,20 @@ def solving(option,number_Skill):
 
         if (isSolved):
             print("Solution for problems using PMDSB is: ")
-            print([index for index in range(len(X_0)) if X_0[index] != 0])
+            X_0 = [0 - X_0[i] for i in range(len(X_0))]
+            topValue = (np.sort(X_0))[:3].tolist()
+            print(topValue)
+            indcies = []
+            ##
+            for index in range(len(X_0)):
+                if (X_0[index] in topValue):
+                    indcies.append(index)
+                    topValue.remove(X_0[index])
+            ##
+            print(indcies)
+            # print([X_0[index] for index in range(len(X_0)) if X_0[index] != 0])
             print("Objective Value is: ")
-            print(math.sqrt(objectValue))
+            print(math.sqrt(compute_ObjectiveMDSB(indcies,numberSkill=numberSkill,E_before_normalize=E_before_normalize,R_before_normalize=R_before_normalize)))
             print("Number Skill: ")
             print(numberSkill)
             print("Execution Time: " , executionTime)
@@ -365,3 +407,20 @@ def solving(option,number_Skill):
 
 solving(2,38)
 
+# E, R, skillScore, nickNames, tau, z, c, C, numberSkill, totalCandidates = readData(fileName=filenName,
+#                                                                                            threshHold=threshHold,
+#                                                                                            numberCandidates=numberCandidates,
+#                                                                                            numberSkill=3)
+# A = np.matrix([[1,2,3],[4,5,6]])
+# print(A.dot(A.T))
+# print(np.matmul(A,A.T))
+# # R = np.matrix(R)
+# # A = R.dot(R.T)
+# w = LA.eigvals(A.dot(A.T))
+# print(A)
+# print("###################")
+# print([value for value in w])
+#
+# A = [[3,2],[1,4],[3,2]]
+# print(normalizingData(A))
+# # print(np.sort(A,axis=0))
