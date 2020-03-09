@@ -16,3 +16,6 @@ https://www.ibm.com/support/knowledgecenter/SSSA5P_12.8.0/ilog.odms.studio.help/
 https://www.cs.upc.edu/~erodri/webpage/cps/lab/lp/tutorial-cplex-slides/slides.pdf
 
 http://www.iems.ucf.edu/qzheng/grpmbr/seminar/Daniel_Using_C++_with_CPLEX.pdf
+
+## Configure with Visual Studio C++
+https://www.leandro-coelho.com/how-to-configure-ms-visual-studio-to-use-ibm-cplex-concert/
