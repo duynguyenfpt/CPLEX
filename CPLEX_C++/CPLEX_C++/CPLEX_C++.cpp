@@ -3,11 +3,14 @@
 
 #include <iostream>
 #include "dataInputHandler.h"
+#include "MDSBModel.h"
 
 int main()
 {
-	dataInputHandler readData("southeast-asia.xlsx", 1, 2);
+	dataInputHandler readData("southeast-asia.xlsx", 3, 2, 5);
 	//std::cout << readData.fileName;
+	MDSBModel mdsb;
+	/*mdsb.buildModel();*/
 	readData.readData();
 }
 
