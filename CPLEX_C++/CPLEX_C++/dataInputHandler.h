@@ -21,12 +21,16 @@ public:
 	int totalCandidates;
 	dataInput data;
 
+	//void sorting(int[][] a) {
+
+	//}
+
 	dataInputHandler(std::string fileNameCon, int numberSkillCon, int numberCandidatesCon, int totalCandidatesCon) {
 		fileName = fileNameCon;
 		numberCandidates = numberCandidatesCon;
 		numberSkill = numberSkillCon;
 		totalCandidates = totalCandidatesCon;
-		data = dataInput(numberSkill, totalCandidates, numberCandidates);
+		data = dataInput(numberSkillCon, numberCandidatesCon, totalCandidatesCon);
 	}
 	template <typename T>
 	void printOutMatrix(std::vector<std::vector<T>> R) {
@@ -39,7 +43,7 @@ public:
 	}
 	// generic for both double and c++
 	template <typename T>
-	void sortByCollumn(std::vector<std::vector<T>> R) {
+	void sortByCollumn(std::vector<std::vector<T>> &R) {
 		for (int skill_ith = 0; skill_ith < numberSkill; skill_ith++) {
 			// sorting each row using selection sort
 			for (int candidates_i = 0; candidates_i < totalCandidates - 1; candidates_i++) {
@@ -65,12 +69,13 @@ public:
 				if (R[candidates_i][skill_ith] > value) {
 					value = R[candidates_i][skill_ith];
 					ranking++;
-					listMap[skill_ith][std::to_string(value)] = ranking;
 				}
+				listMap[skill_ith][std::to_string(value)] = ranking;
 			}
 		}
 		//
-		printOutMatrix(data.R_before_normalize);
+		std::cout << "AFTER SORTING" << std::endl;
+		/*printOutMatrix(R);*/
 		//
 		for (int index = 0; index < totalCandidates; index++) {
 			for (int index2 = 0; index2 < numberSkill; index2++) {
@@ -88,7 +93,7 @@ public:
 		std::wstring wide_string = std::wstring(fileName.begin(), fileName.end());
 		const wchar_t* result = wide_string.c_str();
 		//
-		if (book->load(L"southeast-asia.xls"))
+		if (book->load(L"southeast-asia-copy.xls"))
 		{
 			Sheet* sheet = book->getSheet(0);
 			if (sheet)
@@ -98,19 +103,22 @@ public:
 
 				for (int row = sheet->firstRow(); row < sheet->lastRow(); ++row)
 				{
-					if (row == totalCandidates + 1) { break; };
+					if (row == totalCandidates+1) { break; };
 					// first collumn is string nickname
 					int firstCol = sheet->firstCol();
 					const wchar_t* s = sheet->readStr(row, firstCol);
+					char ch[260];
+					char DefChar = ' ';
+					WideCharToMultiByte(CP_ACP, 0, s, -1, ch, 260, &DefChar, NULL);
 					/*std::wcout << s << std::endl;*/
-					data.nickNames[row - 1] = std::wstring(s);
+					data.nickNames.push_back(std::string(ch));
 					//
 					for (int col = firstCol + 1; col < sheet->lastCol(); ++col)
 					{
 						if (col == numberSkill + 1) { break; };
 						CellType cellType = sheet->cellType(row, col);
 						double d = sheet->readNum(row, col);
-						data.R_before_normalize[row - 1][col - 1] = d;
+						data.R_before_normalize[row - 1][col - 1] = d;		
 					}
 				}
 				// int R_size = sizeof(data.R)/sizeof(data.R[0]);
@@ -119,23 +127,64 @@ public:
 				//for (int index = 0; index < totalCandidates; index++) {
 				//	R_before_normalize_copy[index] = new double[numberSkill];
 				//}
-				std::vector<std::vector<double>> R_before_normalize_copy(data.R_before_normalize);
+				std::vector<std::vector<double>> R_before_normalize_copy ;
+				for (int i = 0; i < totalCandidates; i++) {
+					std::vector<double> row;
+					copy(data.R_before_normalize[i].begin(), data.R_before_normalize[i].end(), back_inserter(row));
+					R_before_normalize_copy.push_back(row);
+				}
 				//
 				//std::cout << sizeof(data.R_before_normalize) << std::endl;
 				//std::cout << sizeof(data.R_before_normalize[0]) << std::endl;
 				/*memcpy(R_before_normalize_copy, data.R_before_normalize, sizeof(data.R_before_normalize) * sizeof(data.R_before_normalize[0]));*/
 				//*R_before_normalize_copy = *data.R_before_normalize;
+				//printOutMatrix<double>(data.R_before_normalize);
+				//std::cout << "##############################" << std::endl;
+				//printOutMatrix<double>(R_before_normalize_copy);
 				sortByCollumn<double>(R_before_normalize_copy);
 				//std::cout << data.R_before_normalize << std::endl;
 				//std::cout << "##############################" << std::endl;
 				//std::cout << R_before_normalize_copy << std::endl;
 				//std::cout << "##############################" << std::endl;
-				printOutMatrix<double>(data.R_before_normalize);
 				std::cout << "##############################" << std::endl;
 				//check if address of two R_before_normalize and its copy are the same
 				// printOutMatrix(R_before_normalize_copy);
 				std::map< std::string, int>* listMap = normalizingData(R_before_normalize_copy);
 
+				//
+				std::cout << "##############################" << std::endl;
+				for (int index = 0; index < totalCandidates; index++) {
+					for (int index2 = 0; index2 < numberSkill; index2++) {
+						//std::cout << listMap[index2][std::to_string(data.R_before_normalize[index][index2])] << " ";
+						data.R[index][index2] = listMap[index2][std::to_string(data.R_before_normalize[index][index2])];
+					}
+				}
+				// build E and E_before_normalize
+				for (int skill = 0; skill < numberSkill; skill++) {
+					double sum_before = 0;
+					// totalCandidates + (totalCandidates-1) +  (totalCandidates-2)
+					data.E.push_back(totalCandidates * 3 - 3);
+					data.z.push_back((totalCandidates * 3 - 3)*0.3);
+					//
+					for (int can = totalCandidates - numberCandidates; can < totalCandidates; can++) {
+						sum_before += R_before_normalize_copy[can][skill];
+					}
+					data.E_before_normalize.push_back(sum_before);
+					//
+					data.z_before_normalize.push_back(sum_before*0.3);
+					//
+				}
+				////
+				//for (int skill = 0; skill < numberSkill; skill++) {
+				//	std::cout << data.E[skill] << " ";
+				//}
+				//std::cout << std::endl;
+				////
+				//for (int skill = 0; skill < numberSkill; skill++) {
+				//	std::cout << data.E_before_normalize[skill] << " ";
+				//}
+				data.tau = 0.001;
+				std::cout << std::endl;
 			}
 		}
 		else {

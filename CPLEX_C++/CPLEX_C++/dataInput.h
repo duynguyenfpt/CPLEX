@@ -5,13 +5,14 @@ class dataInput
 {
 	public:
 		// (E,E_before_normalize,R,R_before_normalize,skillScore,nickNames,tau,z,c,C,numberSkill,totalCandidates)
-		double* E_before_normalize;
-		int* E;
+		std::vector<double> E_before_normalize;
+		std::vector<int> E;
 		std::vector<std::vector<double>> R_before_normalize;
-		int** R;
-		std::wstring* nickNames;
+		std::vector<std::vector<int>> R;
+		std::vector<std::string> nickNames;
 		double tau;
-		double* z;
+		std::vector<double> z_before_normalize;
+		std::vector<double> z;
 		double* c;
 		double C;
 		int numberCandidates;
@@ -20,24 +21,15 @@ class dataInput
 		//
 		dataInput(){}
 		//
-		dataInput(int numberSkillCon, int totalCandidatesCon, int numberCandidatesCon) {
+		dataInput(int numberSkillCon, int numberCandidatesCon, int totalCandidatesCon) {
 			numberSkill = numberSkillCon;
 			totalCandidates = totalCandidatesCon;
-			numberCandidates = numberCandidatesCon;
-			E_before_normalize = new double[numberSkill];
-			E = new int[numberSkill];		
+			numberCandidates = numberCandidatesCon;	
 			//
 			
 			R_before_normalize = std::vector<std::vector<double>>(totalCandidates,std::vector<double>(numberSkill));
+			R = std::vector<std::vector<int>>(totalCandidates,std::vector<int>(numberSkill));
 			//
-			R = new int* [totalCandidates];
-			for (int index = 0; index < totalCandidates; index++) {
-				R[index] = new int[numberSkill];
-			}
-			//
-			nickNames = new std::wstring[totalCandidates];
-			z = new double[numberSkill];
-			c = new double[totalCandidates];
 		}
 };
 

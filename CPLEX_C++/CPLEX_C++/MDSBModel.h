@@ -12,10 +12,14 @@ class MDSBModel
 			try {
 				IloModel model(env);
 				IloNumVarArray vars(env);
-				vars.add(IloNumVar(env));
-				vars.add(IloNumVar(env));
+				for (int i = 0; i < 2; i++) {
+					vars.add(IloNumVar(env));
+				}
 				IloExpr linearExpr(env);
-				linearExpr += vars[0] + vars[1];
+				/*linearExpr += vars[0] + vars[1];*/
+				for (int i = 0; i < 2; i++) {
+					linearExpr += vars[i];
+				}
 				model.add(linearExpr == 10);
 				//
 				IloExpr linearExpr2(env);
@@ -65,12 +69,17 @@ class MDSBModel
 				// IloObjective obj = IloMinimize(env, objExpr);
 				// model.add(obj);
 				//
+
+				IloExpr expressions;
+				expressions+= vars[1];
+				model.add(expressions >= 0);
+				//
 				for (int index = 0; index < input.numberSkill; index++) {
-					IloExpr constraintSkill;
-					for (int member = 0; member < input.totalCandidates; member++) {
-						constraintSkill += vars[member] * input.R[member][index];
+					IloExpr expressions;
+					for (int member = 0; member < input.totalCandidates -1 ; member++) {
+						expressions += vars[member] * input.R[member][index];
 					}
-					model.add(constraintSkill >= input.z[index]);
+					model.add(expressions >= input.z[index]);
 				}
 				// quadratics expression
 				IloExpr objExpr;
