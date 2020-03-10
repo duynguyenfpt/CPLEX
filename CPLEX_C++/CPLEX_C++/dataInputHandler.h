@@ -29,7 +29,7 @@ public:
 		data = dataInput(numberSkill, totalCandidates, numberCandidates);
 	}
 	template <typename T>
-	void printOutMatrix(T** R) {
+	void printOutMatrix(std::vector<std::vector<T>> R) {
 		for (int index = 0; index < totalCandidates; index++) {
 			for (int index2 = 0; index2 < numberSkill; index2++) {
 				std::cout << R[index][index2] << "   ";
@@ -39,7 +39,7 @@ public:
 	}
 	// generic for both double and c++
 	template <typename T>
-	void sortByCollumn(T** R) {
+	void sortByCollumn(std::vector<std::vector<T>> R) {
 		for (int skill_ith = 0; skill_ith < numberSkill; skill_ith++) {
 			// sorting each row using selection sort
 			for (int candidates_i = 0; candidates_i < totalCandidates - 1; candidates_i++) {
@@ -54,7 +54,7 @@ public:
 		}
 	}
 	template <typename T>
-	std::map<std::string, int>* normalizingData(T** R) {
+	std::map<std::string, int>* normalizingData(std::vector<std::vector<T>>  R) {
 		// normalizing equal values
 		std::map<std::string, int>* listMap = new std::map<std::string, int>[numberSkill];
 		for (int skill_ith = 0; skill_ith < numberSkill; skill_ith++) {
@@ -78,7 +78,7 @@ public:
 			}
 		}
 		// return ranking
-		printOutMatrix<int>(data.R);
+		/*printOutMatrix<int>(data.R);*/
 		//
 		return listMap;
 	}
@@ -115,18 +115,23 @@ public:
 				}
 				// int R_size = sizeof(data.R)/sizeof(data.R[0]);
 				// create a new copy of R_before_normalize for normalizing
-				double** R_before_normalize_copy = new double* [totalCandidates];
-				for (int index = 0; index < totalCandidates; index++) {
-					R_before_normalize_copy[index] = new double[numberSkill];
-				}
+				//double** R_before_normalize_copy = new double* [totalCandidates];
+				//for (int index = 0; index < totalCandidates; index++) {
+				//	R_before_normalize_copy[index] = new double[numberSkill];
+				//}
+				std::vector<std::vector<double>> R_before_normalize_copy(data.R_before_normalize);
 				//
 				//std::cout << sizeof(data.R_before_normalize) << std::endl;
 				//std::cout << sizeof(data.R_before_normalize[0]) << std::endl;
-				memcpy(R_before_normalize_copy, data.R_before_normalize, sizeof(data.R_before_normalize) * sizeof(data.R_before_normalize[0]));
-				std::cout << data.R_before_normalize << std::endl;
-				std::cout << R_before_normalize_copy << std::endl;
-				printOutMatrix<double>(data.R_before_normalize);
+				/*memcpy(R_before_normalize_copy, data.R_before_normalize, sizeof(data.R_before_normalize) * sizeof(data.R_before_normalize[0]));*/
+				//*R_before_normalize_copy = *data.R_before_normalize;
 				sortByCollumn<double>(R_before_normalize_copy);
+				//std::cout << data.R_before_normalize << std::endl;
+				//std::cout << "##############################" << std::endl;
+				//std::cout << R_before_normalize_copy << std::endl;
+				//std::cout << "##############################" << std::endl;
+				printOutMatrix<double>(data.R_before_normalize);
+				std::cout << "##############################" << std::endl;
 				//check if address of two R_before_normalize and its copy are the same
 				// printOutMatrix(R_before_normalize_copy);
 				std::map< std::string, int>* listMap = normalizingData(R_before_normalize_copy);
