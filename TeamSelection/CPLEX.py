@@ -11,7 +11,7 @@ from numpy import linalg as LA
 # from sklearn.preprocessing.tests.test_base import toarray
 from sphinx.addnodes import index
 
-filenName = 'southeast-asia.xlsx'
+filenName = 'southeast-asia-copy.xlsx'
 threshHold = 0
 numberCandidates = 3
 
@@ -23,6 +23,7 @@ def readData(fileName,threshHold,numberCandidates,numberSkill):
     R = dataset.iloc[:500,1:numberSkill].values
     R_before_normalize = R
     R = normalizingData(R)
+    print(R)
     nickNames = dataset.iloc[:500,0].values
     '''
     Sorting based on skill-depth by descending order
@@ -61,11 +62,8 @@ def readData(fileName,threshHold,numberCandidates,numberSkill):
     return (E,E_before_normalize,R,R_before_normalize,skillScore,nickNames,tau,z,c,C,numberSkill,totalCandidates)
 
 def normalizingData(R):
-    print("##########")
-    print(R)
     R_copy = np.copy(R)
     R_copy = np.sort(R_copy,axis=0)
-    print(R_copy)
     dictList = []
     for index in range(len(R_copy[0])):
         dict = {R_copy[0][index] : 1}
@@ -106,16 +104,19 @@ class MDSB:
             -(2*(E[1] * R[i,1] + E[2] * R[i,2] + .... + E[m] * R[i,m]) + tau 
         '''
         ## Calculating quadratic coefficients
+        # print("Quadratic Coefficients:")
         quad_variables = []
         for canIndex1 in range(totalCandidates):
             for canIndex2 in range(canIndex1,totalCandidates):
                 coefficients = 0
                 for skill_Index in range(numberSkill):
+                    # print(f"{canIndex1}-{canIndex2} -{R[canIndex1][skill_Index]}-{R[canIndex2][skill_Index]}")
                     if (canIndex1 != canIndex2):
-                        coefficients += 2 * R[canIndex1][skill_Index] * R[canIndex2][skill_Index]
+                        coefficients += 2*R[canIndex1][skill_Index] * R[canIndex2][skill_Index]
                     else:
                         coefficients += R[canIndex1][skill_Index] ** 2
-                quad_variables.append((canIndex1,canIndex2,coefficients))
+                # print(f"{coefficients}")
+                # quad_variables.append((canIndex1,canIndex2,coefficients))
 
         self.model.objective.set_quadratic_coefficients(quad_variables)
         ## Linear Coefficients
@@ -126,6 +127,9 @@ class MDSB:
         linear_variables = []
         for i in range(totalCandidates):
             linear_variables.append((i, linear_coefficients[i]))
+        ##
+        # print("Linear Coefficients")
+        # print(linear_coefficients)
         self.model.objective.set_linear(linear_variables)
         '''
         Setting ups constraints 
@@ -405,7 +409,7 @@ def solving(option,number_Skill):
 # for skillNumber in range(3,39):
 #     solving(1,skillNumber)
 
-solving(2,38)
+solving(1,38)
 
 # E, R, skillScore, nickNames, tau, z, c, C, numberSkill, totalCandidates = readData(fileName=filenName,
 #                                                                                            threshHold=threshHold,
