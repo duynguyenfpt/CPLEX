@@ -7,12 +7,12 @@
 
 int main()
 {
-	dataInputHandler dataExcel("southeast-asia-copy.xlsx", 10, 3, 20);
+	dataInputHandler dataExcel("southeast-asia-copy.xlsx", 37, 3, 500);
 	//std::cout << readData.fileName;
 	MDSBModel mdsb;
 	/*mdsb.buildModel();*/
-	dataExcel.readData();
-	mdsb.buildModel(dataExcel.data);
+	dataExcel.testReadExcel();
+	/*mdsb.buildModel(dataExcel.data);*/
 }
 
 // Run program: Ctrl + F5 or Debug > Start Without Debugging menu
