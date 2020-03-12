@@ -288,7 +288,7 @@ def compute_Objective(previousState,X,numberSkill,totalCandidates,tau,E,R):
         sum += (E[j] - tmp) * (E[j] - tmp)
     ##
     for index in indcies:
-        sum -= tau * (2*previousState[index]-1)
+        sum -= tau * (2*previousState[index]-1) * X[index]
     # print(sum)
     return sum
 
