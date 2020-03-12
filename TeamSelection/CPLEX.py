@@ -284,7 +284,7 @@ def compute_Objective(previousState,X,numberSkill,totalCandidates,tau,E,R):
     for j in range(numberSkill):
         tmp = 0
         for i in range(len(indcies)):
-            tmp+=R[indcies[i]][j] * previousState[j]
+            tmp+=R[indcies[i]][j] * X[i]
         sum += (E[j] - tmp) * (E[j] - tmp)
     ##
     for index in indcies:
