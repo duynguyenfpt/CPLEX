@@ -4,15 +4,18 @@
 #include <iostream>
 #include "dataInputHandler.h"
 #include "MDSBModel.h"
+#include "PMDSBModel.h"
 
 int main()
 {
-	dataInputHandler dataExcel("southeast-asia-copy.xlsx", 37, 3, 500);
+	dataInputHandler dataExcel("southeast-asia-copy.xlsx", 2, 3, 5);
 	//std::cout << readData.fileName;
 	MDSBModel mdsb;
 	/*mdsb.buildModel();*/
-	dataExcel.testReadExcel();
 	/*mdsb.buildModel(dataExcel.data);*/
+	dataExcel.readData();
+	PMDSBModel pmdsb;
+	pmdsb.solving(dataExcel.data);
 }
 
 // Run program: Ctrl + F5 or Debug > Start Without Debugging menu

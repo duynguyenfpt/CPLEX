@@ -8,22 +8,21 @@
 
 using namespace std;
 
-class PMDSB
+class PMDSBModel
 {
 public:
-	IloNumArray solvingModel(IloNumArray previousState, dataInput input) {
-		IloNumArray defaultValue;
+	IloNumArray solvingModel(IloNumArray previousState, dataInput input, IloEnv env) {
+		IloNumArray defaultValue(env);
 		for (int index = 0; index < input.totalCandidates; index++) {
 			defaultValue.add(0);
 		}
 		//
-		IloEnv env;
 		try {
 			IloModel model(env);
 			IloNumVarArray vars(env);
 			// set up parameters is boolean
 			for (int index = 0; index < input.totalCandidates; index++) {
-				vars.add(IloNumVar(env, ILOBOOL));
+				vars.add(IloNumVar(env, 0,1));
 			}
 			// constraint sum of variables equals to numberCandidates
 			IloExpr constraint1(env);
@@ -35,22 +34,21 @@ public:
 			// IloObjective obj = IloMinimize(env, objExpr);
 			// model.add(obj);
 			//
-
-			IloExpr expressions;
-			expressions += vars[1];
-			model.add(expressions >= 0);
 			//
 			for (int index = 0; index < input.numberSkill; index++) {
-				IloExpr expressions;
+				IloExpr expressions(env);
 				for (int member = 0; member < input.totalCandidates - 1; member++) {
 					expressions += vars[member] * input.R[member][index];
 				}
 				model.add(expressions >= input.z[index]);
 			}
 			// quadratics expression
-			IloExpr objExpr;
+			IloExpr objExpr(env);
 			for (int index = 0; index < input.totalCandidates; index++) {
 				for (int index2 = index; index < input.totalCandidates; index2++) {
+					if (index2 == input.totalCandidates) {
+						break;
+					}
 					int coefficients = 0;
 					for (int skill = 0; skill < input.numberSkill; skill++) {
 						if (index == index2) {
@@ -110,7 +108,7 @@ public:
 
 	double getObjectivePMDSB(IloNumArray previousSate, IloNumArray currentSate, dataInput input) {
 		double result = 0;
-		for (int skill; skill < input.numberSkill; skill++) {
+		for (int skill = 0; skill < input.numberSkill; skill++) {
 			double tmp = 0;
 			for (int can = 0; can < input.totalCandidates; can++) {
 				tmp += input.R[can][skill] * currentSate[can];
@@ -126,28 +124,35 @@ public:
 
 	void solving(dataInput input) {
 		// create a random state
+		IloEnv env;
 		bool isSolved = true;
 		std::vector<int> indicies;
 		for (int index = 0; index < input.totalCandidates; index++) {
 			indicies.push_back(index);
 		}
 		//
-		IloNumArray previousSate;
+		IloNumArray previousSate(env);
 		for (int index = 0; index < input.totalCandidates; index++) {
 			previousSate.add(0);
 		}
+		/*srand((unsigned)time(NULL));*/
+
 		for (int index = 0; index < input.numberCandidates; index++) {
-			int randomIndex = rand() * indicies.size;
+			int randomIndex = rand() % indicies.size();
 			previousSate[randomIndex] = 1;
 			indicies.erase(indicies.begin() + randomIndex - 1);
 		}
 		// looping for solving
+		for (int index = 0; index < input.totalCandidates; index++) {
+			std::cout << previousSate[index] << " ";
+		}
+		std::cout << std::endl;
 		// print out data
 		double epsilon = 0.00001;
-		double previousValue = numeric_limits<double>::max();
+		double previousValue = -std::numeric_limits<double>::lowest();
 		double currentValue = 0;
 		while (true) {
-			IloNumArray currentSate = solvingModel(previousSate, input);
+			IloNumArray currentSate = solvingModel(previousSate, input, env);
 			if (isUnsolve(currentSate)) {
 				std::cout << "No Solution" << std::endl;
 				isSolved = false;
@@ -161,10 +166,16 @@ public:
 				}
 				previousValue = currentValue;
 			}
+			// reset env
+			env = IloEnv();
 		}
 		//
 		if (isSolved) {
-			previousSate.getEnv().out << "Values: " << previousSate;
+			for (int index = 0; index < input.totalCandidates;index++) {
+				if (previousSate[index] != 0) {
+					std::cout << index << " ";
+				}
+			}
 		}
 	}
 };

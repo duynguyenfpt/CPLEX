@@ -51,6 +51,7 @@ public:
 		env.end();
 	}
 
+
 	void buildModel(dataInput input) {
 		IloEnv env;
 		try {

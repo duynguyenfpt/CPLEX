@@ -10,6 +10,11 @@
 #include <iostream>
 #include <WinNls.h>
 #include "dataInput.h"
+#include <algorithm>
+#include <utility> // std::pair
+#include <stdexcept> // std::runtime_error
+#include <sstream> // std::stringstream
+#include <fstream>
 
 using namespace libxl;
 class dataInputHandler
@@ -31,6 +36,7 @@ public:
 		numberSkill = numberSkillCon;
 		totalCandidates = totalCandidatesCon;
 		data = dataInput(numberSkillCon, numberCandidatesCon, totalCandidatesCon);
+		readData();
 	}
 	template <typename T>
 	void printOutMatrix(std::vector<std::vector<T>> R) {
@@ -88,62 +94,6 @@ public:
 		return listMap;
 	}
 
-	void testXLNT() {
-
-	}
-
-	void testReadExcel() {
-		Book* book = xlCreateXMLBook();
-		if (book->load(L"southeast-asia-copy.xlsx"))
-		{
-			Sheet* sheet = book->getSheet(0);
-			if (sheet)
-			{
-				for (int row = sheet->firstRow(); row < sheet->lastRow(); ++row)
-				{
-					for (int col = sheet->firstCol(); col < sheet->lastCol(); ++col)
-					{
-						CellType cellType = sheet->cellType(row, col);
-						std::wcout << "(" << row << ", " << col << ") = ";
-						if (sheet->isFormula(row, col))
-						{
-							const wchar_t* s = sheet->readFormula(row, col);
-							std::wcout << (s ? s : L"null") << " [formula]";
-						}
-						else
-						{
-							switch (cellType)
-							{
-							case CELLTYPE_EMPTY: std::wcout << "[empty]"; break;
-							case CELLTYPE_NUMBER:
-							{
-								double d = sheet->readNum(row, col);
-								std::wcout << d << " [number]";
-								break;
-							}
-							case CELLTYPE_STRING:
-							{
-								const wchar_t* s = sheet->readStr(row, col);
-								std::wcout << (s ? s : L"null") << " [string]";
-								break;
-							}
-							case CELLTYPE_BOOLEAN:
-							{
-								bool b = sheet->readBool(row, col);
-								std::wcout << (b ? "true" : "false") << " [boolean]";
-								break;
-							}
-							case CELLTYPE_BLANK: std::wcout << "[blank]"; break;
-							case CELLTYPE_ERROR: std::wcout << "[error]"; break;
-							}
-						}
-						std::wcout << std::endl;
-					}
-				}
-			}
-		}
-	}
-
 	void readData() {
 		Book* book = xlCreateXMLBook();
 		std::wstring wide_string = std::wstring(fileName.begin(), fileName.end());
@@ -157,7 +107,7 @@ public:
 				//std::cout << sheet->firstRow() << std::endl;
 				//std::cout << sheet->lastRow();
 
-				for (int row = sheet->firstRow(); row < sheet->lastRow(); ++row)
+				for (int row = sheet->firstRow()+1; row < sheet->lastRow(); ++row)
 				{
 					if (row == totalCandidates + 1) { break; };
 					// first collumn is string nickname

@@ -166,7 +166,7 @@ class PMDSB:
     ##
     def buildModel(self , previous_step,E, R,tau,z,c,C,numberSkill,totalCandidates):
         self.model.objective.set_sense(self.model.objective.sense.minimize)
-        self.model.parameters.optimalitytarget.set(3)
+        self.model.parameters.optimalitytarget.set(1)
         '''
         Number of variables equals to number of candidates
         '''
@@ -365,7 +365,7 @@ def solving(option,number_Skill):
             modelPMDSB.model.set_error_stream(None)
             modelPMDSB.model.set_warning_stream(None)
             modelPMDSB.model.set_results_stream(None)
-            modelPMDSB.model.set_problem_type(modelPMDSB.model.problem_type.MIQP)
+            # modelPMDSB.model.set_problem_type(modelPMDSB.model.problem_type.MIQP)
             startTime = modelPMDSB.model.get_time()
             print("Starting")
             modelPMDSB.model.solve()
@@ -409,7 +409,7 @@ def solving(option,number_Skill):
 # for skillNumber in range(3,39):
 #     solving(1,skillNumber)
 
-solving(1,38)
+solving(2,38)
 
 # E, R, skillScore, nickNames, tau, z, c, C, numberSkill, totalCandidates = readData(fileName=filenName,
 #                                                                                            threshHold=threshHold,
